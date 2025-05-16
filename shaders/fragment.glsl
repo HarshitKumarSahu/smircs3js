@@ -59,11 +59,15 @@ void main() {
     float r1 = radialCircles(p, 0.2 * uSize.x, 3.0);
     float r2 = radialCircles(p, 0.25 * uSize.x, 3.0);
     float r3 = radialCircles(p, 0.45 * uSize.x, 5.0);
+    float r4 = radialCircles(p, 0.65 * uSize.y, 5.0);
+    float r5 = radialCircles(p, 0.85 * uSize.y, 7.0);
 
-    float k = 50.0 / uSize.x;
+    float k = 50.0 / uSize.y;
     float circle = softMin(c1, r1, k); 
     circle = softMin(circle, r2, k);
     circle = softMin(circle, r3, k);
+    circle = softMin(circle, r4, k);
+    circle = softMin(circle, r5, k);
 
     circle = step(circle, rad);
     vec4 color = mix(bg, texture, circle);
