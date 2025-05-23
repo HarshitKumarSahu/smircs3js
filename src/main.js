@@ -1,19 +1,30 @@
-import * as THREE from 'three';
-import vertex from "../shaders/vertex.glsl";
-import fragment from "../shaders/fragment.glsl";
+import * as THREE from 'three'
+import gsap from 'gsap'
+import MeshItem from './meshItems'
+import Loader from './textureLoader'
 
-// Canvas & Renderer
-const canvas = document.querySelector('#canvas');
-const renderer = new THREE.WebGLRenderer({ 
-  canvas,
-  antialias: true,
-  alpha: true
-});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(window.devicePixelRatio);
+/**
+ * Setup
+ */
+const canvas = document.querySelector('.webgl')
+const scene = new THREE.Scene()
 
-// Scene & Camera
-const scene = new THREE.Scene();
+const sizes = {
+    width: window.innerWidth,
+    height: window.innerHeight
+}
+
+window.addEventListener('resize', () =>
+{
+    sizes.width = window.innerWidth
+    sizes.height = window.innerHeight
+    camera.aspect = sizes.width / sizes.height
+    camera.updateProjectionMatrix()
+    renderer.setSize(sizes.width, sizes.height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    const fov = 2 * Math.atan((window.innerHeight / 2) / cameraDistance) * (180 / Math.PI);
+})
+
 const cameraDistance = 5;
 const fov = 2 * Math.atan((window.innerHeight / 2) / cameraDistance) * (180 / Math.PI);
 const camera = new THREE.PerspectiveCamera(
@@ -24,76 +35,124 @@ const camera = new THREE.PerspectiveCamera(
 );
 camera.position.z = cameraDistance;
 
-// Image element
-
-
-// Load texture from image's src
-
-const imgBoxs = document.querySelectorAll(".img")
-
-imgBoxs.forEach((imgBox) => {
-  const image = imgBox.querySelector("img"); // Make sure <img> exists in HTML
-  const imageBounds = image.getBoundingClientRect();
-  const texture = new THREE.TextureLoader().load(image.src);
-
-    // Create shader material
-  const material = new THREE.ShaderMaterial({
-    vertexShader: vertex,
-    fragmentShader: fragment,
-    transparent: true,
-    uniforms: {
-      uTexture: { value: texture },
-      uProgress: { value: 0 },
-      // uSize: { value: new THREE.Vector2(image.offsetWidth, image.offsetHeight) },
-      // uBox : { value : new THREE.Vector2(imgBox.offsetWidth, imgBox.offsetHeight)},
-      uSize: { value: new THREE.Vector2(texture.image?.width || 1, texture.image?.height || 1) },
-      uBox: { value: new THREE.Vector2(imageBounds.width, imageBounds.height) },
-    }
-  });
-
-  // Plane geometry & mesh
-  const geometry = new THREE.PlaneGeometry(imageBounds.width, imageBounds.height);
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(
-    imageBounds.left - window.innerWidth / 2 + imageBounds.width / 2,
-    -imageBounds.top + window.innerHeight / 2 - imageBounds.height / 2,
-    0
-  );
-  scene.add(mesh);
-  // animate();
-
-  // Animate
-function animate() {
-  requestAnimationFrame(animate);
-
-  // Animate progress (0 to 1)
-  const t = performance.now() * 0.001;
-  material.uniforms.uProgress.value = (Math.sin(t) * 0.5) + 0.5;
-
-  renderer.render(scene, camera);
-}
-
-animate();
-
+const renderer = new THREE.WebGLRenderer({
+    canvas: canvas,
+    alpha: true,
 })
+renderer.setSize(sizes.width, sizes.height)
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
+/**
+ * Objects
+ */
+const objectsDistance = sizes.height;
+let sectionMeshes = [];
 
+const loader = new Loader()
+loader.loadTextures((textures) => {
+    document.body.classList.remove("loading");
 
-// Handle resizing
-function updatePlanePosition() {
-  const bounds = image.getBoundingClientRect();
-  mesh.position.set(
-    bounds.left - window.innerWidth / 2 + bounds.width / 2,
-    -bounds.top + window.innerHeight / 2 - bounds.height / 2,
-    0
-  );
-  material.uniforms.uSize.value.set(bounds.width, bounds.height);
-}
+    // Select all .imgCont elements
+    const imgContainers = document.querySelectorAll('.img');
+    
+    // Warn if the number of .imgCont elements doesn't match the number of textures
+    if (imgContainers.length !== textures.length) {
+        console.warn(`Number of .imgCont elements (${imgContainers.length}) does not match number of textures (${textures.length})`);
+    }
 
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  updatePlanePosition();
+    // Create meshes dynamically based on .imgCont bounding rect dimensions
+    sectionMeshes = textures.map((texture, index) => {
+        let width, height, positionX, positionY;
+
+        if (index < imgContainers.length) {
+            // Get dimensions and position from .imgCont element
+            const rect = imgContainers[index].getBoundingClientRect();
+            width = rect.width;
+            height = rect.height;
+            // Position mesh to align with .imgCont element in viewport
+            positionX = rect.left - window.innerWidth / 2 + rect.width / 2;
+            positionY = -rect.top + window.innerHeight / 2 - rect.height / 2;
+        } else {
+            // Fallback to texture dimensions if .imgCont is not available
+            const img = texture.image;
+            width = img.width;
+            height = img.height;
+            // Default to centered position if no .imgCont is available
+            positionX = 0;
+            positionY = -objectsDistance * index; // Maintain original vertical stacking
+        }
+
+        // Create MeshItem with dimensions
+        const mesh = MeshItem(width, height);
+        // Assign texture and update uTextureSize uniform
+        mesh.material.uniforms.uTexture.value = texture;
+        mesh.material.uniforms.uTextureSize.value.set(
+            texture.image?.width || 1,
+            texture.image?.height || 1
+        );
+        // Set position
+        mesh.position.set(positionX, positionY, 0);
+        scene.add(mesh);
+        return mesh;
+    });
+
+    observeScroll();
+    const section = Math.round(scrollY / sizes.height);
+    onSectionEnter(section);
+    tick();
 });
 
+/**
+ * Scroll
+ */
+let scrollY = window.scrollY
+let currentSection = -1
+let shift = 0
+
+const observeScroll = () => {
+    window.addEventListener('scroll', () => {
+        scrollY = window.scrollY
+    
+        let newSection = scrollY / sizes.height
+        newSection = Math.round(newSection)
+        
+        if (currentSection != newSection) {
+            shift += newSection - currentSection
+            currentSection = newSection
+            onSectionEnter(newSection)
+        }
+    })
+}
+
+const onSectionEnter = (section) => {
+    gsap.to(
+        sectionMeshes[section].material.uniforms.uProgress,
+        {
+            duration: 3.5,
+            value: 1.0,
+        }
+    )
+}
+
+/**
+ * Tick
+ */
+const clock = new THREE.Clock()
+let time = 0
+let targetPosY = -scrollY
+
+const lerp = (a, b, t) => {
+    return a + (b - a) * t;
+}
+
+const tick = () =>
+{
+    const elapsedTime = clock.getElapsedTime()
+    const deltaTime = elapsedTime - time
+    time = elapsedTime
+
+    targetPosY = lerp(targetPosY, -scrollY, 0.075)
+    camera.position.y = targetPosY
+    renderer.render(scene, camera)
+    window.requestAnimationFrame(tick)
+}
