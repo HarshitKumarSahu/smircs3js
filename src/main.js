@@ -25,33 +25,59 @@ const camera = new THREE.PerspectiveCamera(
 camera.position.z = cameraDistance;
 
 // Image element
-const image = document.querySelector("img"); // Make sure <img> exists in HTML
-const imageBounds = image.getBoundingClientRect();
+
 
 // Load texture from image's src
-const texture = new THREE.TextureLoader().load(image.src);
 
-// Create shader material
-const material = new THREE.ShaderMaterial({
-  vertexShader: vertex,
-  fragmentShader: fragment,
-  transparent: true,
-  uniforms: {
-    uTexture: { value: texture },
-    uProgress: { value: 0 },
-    uSize: { value: new THREE.Vector2(imageBounds.width, imageBounds.height) }
-  }
-});
+const imgBoxs = document.querySelectorAll(".img")
 
-// Plane geometry & mesh
-const geometry = new THREE.PlaneGeometry(imageBounds.width, imageBounds.height);
-const mesh = new THREE.Mesh(geometry, material);
-mesh.position.set(
-  imageBounds.left - window.innerWidth / 2 + imageBounds.width / 2,
-  -imageBounds.top + window.innerHeight / 2 - imageBounds.height / 2,
-  0
-);
-scene.add(mesh);
+imgBoxs.forEach((imgBox) => {
+  const image = imgBox.querySelector("img"); // Make sure <img> exists in HTML
+  const imageBounds = image.getBoundingClientRect();
+  const texture = new THREE.TextureLoader().load(image.src);
+
+    // Create shader material
+  const material = new THREE.ShaderMaterial({
+    vertexShader: vertex,
+    fragmentShader: fragment,
+    transparent: true,
+    uniforms: {
+      uTexture: { value: texture },
+      uProgress: { value: 0 },
+      // uSize: { value: new THREE.Vector2(image.offsetWidth, image.offsetHeight) },
+      // uBox : { value : new THREE.Vector2(imgBox.offsetWidth, imgBox.offsetHeight)},
+      uSize: { value: new THREE.Vector2(texture.image?.width || 1, texture.image?.height || 1) },
+      uBox: { value: new THREE.Vector2(imageBounds.width, imageBounds.height) },
+    }
+  });
+
+  // Plane geometry & mesh
+  const geometry = new THREE.PlaneGeometry(imageBounds.width, imageBounds.height);
+  const mesh = new THREE.Mesh(geometry, material);
+  mesh.position.set(
+    imageBounds.left - window.innerWidth / 2 + imageBounds.width / 2,
+    -imageBounds.top + window.innerHeight / 2 - imageBounds.height / 2,
+    0
+  );
+  scene.add(mesh);
+  // animate();
+
+  // Animate
+function animate() {
+  requestAnimationFrame(animate);
+
+  // Animate progress (0 to 1)
+  const t = performance.now() * 0.001;
+  material.uniforms.uProgress.value = (Math.sin(t) * 0.5) + 0.5;
+
+  renderer.render(scene, camera);
+}
+
+animate();
+
+})
+
+
 
 // Handle resizing
 function updatePlanePosition() {
@@ -71,15 +97,3 @@ window.addEventListener('resize', () => {
   updatePlanePosition();
 });
 
-// Animate
-function animate() {
-  requestAnimationFrame(animate);
-
-  // Animate progress (0 to 1)
-  const t = performance.now() * 0.001;
-  material.uniforms.uProgress.value = (Math.sin(t) * 0.5) + 0.5;
-
-  renderer.render(scene, camera);
-}
-
-animate();

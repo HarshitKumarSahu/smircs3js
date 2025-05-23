@@ -3,7 +3,26 @@ uniform float uProgress;
 uniform vec2 uSize;
 uniform sampler2D uTexture;
 #define PI 3.1415926538
+// uniform vec2 uSize;     // image size
+uniform vec2 uBox;
+// uniform vec2 uImageSize;
+// uniform vec2 uContainerSize;
 
+vec2 cover(vec2 uv, vec2 uTextureSize, vec2 uPlaneResolution) {
+    vec2 tempUV = uv - vec2(0.5);
+
+    float planeAspect = uPlaneResolution.x / uPlaneResolution.y;
+    float textureAspect = uTextureSize.x / uTextureSize.y;
+
+    if (planeAspect < textureAspect) {
+        tempUV = tempUV * vec2(planeAspect / textureAspect, 1.0);
+    } else {
+        tempUV = tempUV * vec2(1.0, textureAspect / planeAspect);
+    }
+
+    tempUV += 0.5;
+    return tempUV;
+}
 
 float noise(vec2 point) {
     float frequency = 1.0;
@@ -45,9 +64,10 @@ float radialCircles(vec2 p, float o, float count) {
 }
 
 void main() {
+    vec2 uv = cover(vUv, uSize, uBox);
     vec4 bg = vec4(vec3(0.0), 0.0);
-    vec4 texture = texture2D(uTexture,vUv);
-    vec2 coords = vUv * uSize;
+    vec4 texture = texture2D(uTexture,uv);
+    vec2 coords = uv * uSize;
     vec2 o1 = vec2(0.5) * uSize;
 
     float t = pow(uProgress, 2.5); // easing
@@ -55,7 +75,7 @@ void main() {
     float rad = t * radius;
     float c1 = circleSDF(coords - o1, rad);
 
-    vec2 p = (vUv - 0.5) * uSize;
+    vec2 p = (uv - 0.5) * uSize;
     float r1 = radialCircles(p, 0.2 * uSize.x, 3.0);
     float r2 = radialCircles(p, 0.25 * uSize.x, 3.0);
     float r3 = radialCircles(p, 0.45 * uSize.x, 5.0);
@@ -72,4 +92,5 @@ void main() {
     circle = step(circle, rad);
     vec4 color = mix(bg, texture, circle);
     gl_FragColor = color;
+    // gl_FragColor = texture;
 }
