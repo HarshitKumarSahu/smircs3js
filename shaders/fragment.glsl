@@ -179,7 +179,8 @@ void main() {
     circle = softMin(circle, r3, k);
 
     // Use smoothstep for a blurry edge
-    float blurAmount = 10.0; // Adjust for more/less blur
+    // float blurAmount = 20.0; // Adjust for more/less blur
+    float blurAmount = 10.0 + uProgress * 10.0; // Blur increases with progress
     float edge = smoothstep(rad - blurAmount, rad + blurAmount, circle);
     vec4 color = mix(texture, bg, edge); // Invert mix to show texture inside circle
 

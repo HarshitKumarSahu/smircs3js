@@ -113,12 +113,12 @@ const observeScroll = () => {
     window.addEventListener('scroll', () => {
         scrollY = window.scrollY
     
-        let newSection = scrollY / sizes.height
+        let newSection = (scrollY / sizes.height)
         newSection = Math.round(newSection)
         
         if (currentSection != newSection) {
             shift += newSection - currentSection
-            currentSection = newSection
+            currentSection = newSection 
             onSectionEnter(newSection)
         }
     })
@@ -151,8 +151,9 @@ const tick = () =>
     const deltaTime = elapsedTime - time
     time = elapsedTime
 
-    targetPosY = lerp(targetPosY, -scrollY, 0.075)
+    targetPosY = lerp(targetPosY, -scrollY, 0.1)
     camera.position.y = targetPosY
     renderer.render(scene, camera)
     window.requestAnimationFrame(tick)
 }
+
